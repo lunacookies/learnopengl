@@ -1,16 +1,18 @@
+mod shader;
+
 use cocoa::appkit::{NSColorSpace, NSWindow};
 use cocoa::base::{id, nil};
-use gl::types::{GLboolean, GLenum};
 use glutin::event::{Event, WindowEvent};
 use glutin::event_loop::{ControlFlow, EventLoop};
 use glutin::platform::macos::WindowExtMacOS;
 use glutin::window::{Window, WindowBuilder};
 use glutin::{Api, ContextBuilder, GlRequest};
-use std::ffi::{c_void, CString};
+use shader::Shader;
+use std::ffi::c_void;
 use std::{mem, ptr};
 
-const VERTEX_SHADER_SOURCE: &str = include_str!("vertex.glsl");
-const FRAGMENT_SHADER_SOURCE: &str = include_str!("fragment.glsl");
+const VERTEX_SHADER_SOURCE: &str = include_str!("shader.vs");
+const FRAGMENT_SHADER_SOURCE: &str = include_str!("shader.fs");
 
 fn main() {
     let el = EventLoop::new();
@@ -28,7 +30,7 @@ fn main() {
 
     gl::load_with(|s| context.get_proc_address(s));
 
-    let shader_program = compile_shaders(VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
+    let shader = Shader::new(VERTEX_SHADER_SOURCE, FRAGMENT_SHADER_SOURCE);
 
     let size = context.window().inner_size();
     unsafe { gl::Viewport(0, 0, size.width as i32, size.height as i32) };
@@ -111,7 +113,7 @@ fn main() {
                     gl::ClearColor(0.2, 0.3, 0.3, 1.0);
                     gl::Clear(gl::COLOR_BUFFER_BIT);
 
-                    gl::UseProgram(shader_program);
+                    shader.use_shader();
                     gl::BindVertexArray(vao);
                     gl::DrawElements(
                         gl::TRIANGLES,
@@ -129,63 +131,6 @@ fn main() {
             _ => {}
         }
     });
-}
-
-fn compile_shaders(
-    vertex_shader_source: &'static str,
-    fragment_shader_source: &'static str,
-) -> u32 {
-    let vertex_shader = compile_shader(vertex_shader_source, "vertex", gl::VERTEX_SHADER);
-    let fragment_shader = compile_shader(fragment_shader_source, "fragment", gl::FRAGMENT_SHADER);
-
-    unsafe {
-        let shader_program = gl::CreateProgram();
-
-        gl::AttachShader(shader_program, vertex_shader);
-        gl::AttachShader(shader_program, fragment_shader);
-        gl::LinkProgram(shader_program);
-
-        let mut success = 0;
-        gl::GetProgramiv(shader_program, gl::LINK_STATUS, &mut success as *mut _);
-
-        if success as GLboolean == gl::FALSE {
-            let mut info_log = [0; 512];
-            gl::GetProgramInfoLog(shader_program, 512, ptr::null_mut(), info_log.as_mut_ptr());
-            let info_log = mem::transmute::<[i8; 512], [u8; 512]>(info_log);
-            panic!("shader program linking failed:\n{}", std::str::from_utf8(&info_log).unwrap());
-        }
-
-        gl::DeleteShader(vertex_shader);
-        gl::DeleteShader(fragment_shader);
-
-        shader_program
-    }
-}
-
-fn compile_shader(source: &'static str, name: &str, type_: GLenum) -> u32 {
-    let source = CString::new(source).unwrap();
-    let source = &(source.as_ptr() as *const i8) as *const _;
-
-    unsafe {
-        let shader = gl::CreateShader(type_);
-        gl::ShaderSource(shader, 1, source, ptr::null());
-        gl::CompileShader(shader);
-
-        let mut success = 0;
-        gl::GetShaderiv(shader, gl::COMPILE_STATUS, &mut success as *mut _);
-
-        if success as GLboolean == gl::FALSE {
-            let mut info_log = [0; 512];
-            gl::GetShaderInfoLog(shader, 512, ptr::null_mut(), info_log.as_mut_ptr());
-            let info_log = mem::transmute::<[i8; 512], [u8; 512]>(info_log);
-            panic!(
-                "{name} shader compilation failed:\n{}",
-                std::str::from_utf8(&info_log).unwrap()
-            );
-        }
-
-        shader
-    }
 }
 
 fn set_window_color_space_to_srgb(window: &Window) {
