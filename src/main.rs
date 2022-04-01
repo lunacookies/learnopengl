@@ -34,12 +34,12 @@ fn main() {
     unsafe { gl::Viewport(0, 0, size.width as i32, size.height as i32) };
 
     let vertices: &[f32] = &[
-        0.5, 0.5, 0.0, // top right
-        0.5, -0.5, 0.0, // bottom right
-        -0.5, -0.5, 0.0, // bottom left
-        -0.5, 0.5, 0.0, // top left
+        // positions    // colors
+        0.5, -0.5, 0.0, 1.0, 0.0, 0.0, // bottom right
+        -0.5, -0.5, 0.0, 0.0, 1.0, 0.0, // bottom left
+        0.0, 0.5, 0.0, 0.0, 0.0, 1.0, // top
     ];
-    let indices: &[u32] = &[0, 1, 3, 1, 2, 3];
+    let indices: &[u32] = &[0, 1, 2];
 
     let mut vbo = 0;
     let mut ebo = 0;
@@ -73,10 +73,20 @@ fn main() {
             3,
             gl::FLOAT,
             gl::FALSE,
-            3 * mem::size_of::<f32>() as i32,
+            6 * mem::size_of::<f32>() as i32,
             ptr::null(),
         );
         gl::EnableVertexAttribArray(0);
+
+        gl::VertexAttribPointer(
+            1,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            6 * mem::size_of::<f32>() as i32,
+            (3 * mem::size_of::<f32>()) as *const _,
+        );
+        gl::EnableVertexAttribArray(1);
 
         gl::BindVertexArray(0);
         gl::BindBuffer(gl::ARRAY_BUFFER, 0);
